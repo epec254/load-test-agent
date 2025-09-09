@@ -6,16 +6,20 @@ import os
 # Configuration for which tracing backend to use
 TRACING_BACKEND = os.getenv("TRACING_BACKEND", "mlflow")
 
-# Try to import OpenTelemetry/Traceloop if available
-try:
-    from opentelemetry import trace
-    from opentelemetry.trace import Status, StatusCode
-    from traceloop.sdk import Traceloop
-    TRACELOOP_AVAILABLE = True
-except ImportError:
-    TRACELOOP_AVAILABLE = False
-    trace = None
-    Traceloop = None
+print(TRACING_BACKEND)
+
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+from traceloop.sdk import Traceloop
+from traceloop.sdk.decorators import workflow, task, agent, tool
+from traceloop.sdk.tracing import get_tracer
+from traceloop.sdk.tracing.tracing import set_association_properties
+from databricks.sdk import WorkspaceClient
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
 
 def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, **kwargs):
     """
@@ -46,38 +50,26 @@ def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, *
             return traced_func
         elif TRACING_BACKEND in ["opentelemetry", "traceloop"]:
             # OpenTelemetry/Traceloop tracing
-            if not TRACELOOP_AVAILABLE:
-                # If Traceloop not installed, pass through
-                return func
+         
+            print('dfdsfds')
+            # Use Traceloop's specific decorators based on span_type
+            traceloop_name = name or func.__name__
             
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                # Get or create a tracer
-                tracer = trace.get_tracer(__name__)
-                
-                # Determine span name
-                span_name = name or func.__name__
-                
-                # Create span attributes
-                attributes = {}
-                if span_type:
-                    attributes["span.type"] = span_type
-                # Add any additional attributes from kwargs
-                for key, value in kwargs.items():
-                    if key not in ["name", "span_type"]:
-                        attributes[key] = str(value)
-                
-                # Start a new span
-                with tracer.start_as_current_span(span_name, attributes=attributes) as span:
-                    try:
-                        result = func(*args, **kwargs)
-                        span.set_status(Status(StatusCode.OK))
-                        return result
-                    except Exception as e:
-                        span.set_status(Status(StatusCode.ERROR, str(e)))
-                        span.record_exception(e)
-                        raise
-            return wrapper
+            if span_type == "TOOL":
+                # Use @tool decorator for tools
+                return tool(name=traceloop_name)(func)
+            elif span_type == "AGENT":
+                # Use @agent decorator for agents
+                return agent(name=traceloop_name)(func)
+            elif span_type == "TASK":
+                # Use @task decorator for tasks
+                return task(name=traceloop_name)(func)
+            elif span_type in ["WORKFLOW", "CHAIN"]:
+                # Use @workflow decorator for workflows/chains
+                return workflow(name=traceloop_name)(func)
+            else:
+                # Default to workflow decorator for general tracing
+                return workflow(name=traceloop_name)(func)
         elif TRACING_BACKEND == "none":
             # No tracing - pass through
             return func
@@ -110,29 +102,52 @@ def start_tracing():
     if TRACING_BACKEND == "mlflow":
         mlflow.openai.autolog()
     elif TRACING_BACKEND in ["opentelemetry", "traceloop"]:
-        if TRACELOOP_AVAILABLE:
-            # Initialize Traceloop with configuration from environment
-            api_key = os.getenv("TRACELOOP_API_KEY")
-            base_url = os.getenv("TRACELOOP_BASE_URL")
-            headers = os.getenv("TRACELOOP_HEADERS")
-            
-            traceloop_kwargs = {}
-            if api_key:
-                traceloop_kwargs["api_key"] = api_key
-            if base_url:
-                traceloop_kwargs["base_url"] = base_url
-            if headers:
-                import json
-                try:
-                    traceloop_kwargs["headers"] = json.loads(headers)
-                except json.JSONDecodeError:
-                    pass
-            
-            # Initialize Traceloop
-            Traceloop.init(**traceloop_kwargs)
-            print(f"Traceloop initialized with backend: {TRACING_BACKEND}")
-        else:
-            print(f"Warning: {TRACING_BACKEND} backend selected but traceloop-sdk not installed. Install with: pip install traceloop-sdk")
+
+        os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
+        # Set up Databricks Workspace Client with OAuth authentication
+        databricks_workspace_client = WorkspaceClient()
+
+        # Set up OpenTelemetry Tracer
+        # provider = TracerProvider()
+        exporter = OTLPSpanExporter(
+            headers={
+                "content-type": "application/x-protobuf",
+                # Retrieve the Databricks OAuth token from the Databricks Workspace Client
+                # and set it as a header
+                **databricks_workspace_client.config.authenticate()
+            },
+            endpoint=os.environ['TRACELOOP_BASE_URL']
+        )
+        # provider.add_span_processor(BatchSpanProcessor()
+        # trace.set_tracer_provider(provider)
+        # tracer = trace.get_tracer(__name__)
+
+        
+    
+        # print('jjj')
+        # # Initialize Traceloop with configuration from environment
+        
+
+        # print(os.environ['TRACELOOP_BASE_URL'])
+        
+        # traceloop_kwargs = {}
+        # if api_key:
+        #     traceloop_kwargs["api_key"] = api_key
+        # if base_url:
+        #     traceloop_kwargs["base_url"] = base_url
+        # if headers:
+        #     import json
+        #     try:
+        #         traceloop_kwargs["headers"] = json.loads(headers)
+        #     except json.JSONDecodeError:
+        #         pass
+        
+        # Initialize Traceloop
+        
+        Traceloop.init(exporter=exporter, disable_batch=True)
+
+
+        print(f"Traceloop initialized with backend: {TRACING_BACKEND}")
 
 
 def log_user_session(user_id, session_id):
@@ -151,9 +166,9 @@ def log_user_session(user_id, session_id):
             }
             )
     elif TRACING_BACKEND in ["opentelemetry", "traceloop"]:
-        if TRACELOOP_AVAILABLE:
-            # Get current span and add attributes
-            current_span = trace.get_current_span()
-            if current_span:
-                current_span.set_attribute("user.id", user_id)
-                current_span.set_attribute("session.id", session_id)
+        
+        set_association_properties({
+            "user_id": user_id,
+            "session_id": session_id,
+            "chat_id": session_id  # chat_id can be same as session_id for conversations
+        })

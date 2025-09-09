@@ -12,6 +12,8 @@ dependencies = [
     "requests>=2.31.0",
     "mlflow-tracing>=3.3.2",
     "mlflow[databricks]>=3.3.2",
+    "traceloop-sdk>=0.46.2",
+    "databricks-sdk>=0.65.0",
 ]
 
 [tool.setuptools.packages.find]
