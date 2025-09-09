@@ -5,7 +5,9 @@ import json
 import random
 import datetime
 from typing import Literal
+import mlflow
 
+@mlflow.trace(span_type="TOOL")
 def get_billing_history(customer_id: str) -> str:
     """
     Retrieves the billing history for a given customer.
@@ -55,6 +57,7 @@ def get_billing_history(customer_id: str) -> str:
         }
     })
 
+@mlflow.trace(span_type="TOOL")
 def get_charge_details(charge_id: str) -> str:
     """
     Retrieves details for a specific charge.
@@ -92,7 +95,7 @@ def get_charge_details(charge_id: str) -> str:
             "refundable": random.choice([True, False, False])  # Less likely to be refundable
         }
     })
-
+@mlflow.trace(span_type="TOOL")
 def get_active_promotions(customer_id: str) -> str:
     """
     Retrieves active promotions for a given customer.
@@ -132,7 +135,7 @@ def get_active_promotions(customer_id: str) -> str:
             "eligible_for_new_promos": random.choice([True, False])
         }
     })
-
+@mlflow.trace(span_type="TOOL")
 def get_account_balance(customer_id: str) -> str:
     """
     Retrieves the current account balance for a given customer.
@@ -174,7 +177,7 @@ def get_account_balance(customer_id: str) -> str:
         "status": "success",
         "data": response_data
     })
-
+@mlflow.trace(span_type="TOOL")
 def get_saved_payment_methods(customer_id: str) -> str:
     """
     Retrieves the saved payment methods for a given customer.
@@ -220,7 +223,7 @@ def get_saved_payment_methods(customer_id: str) -> str:
             "wallet_balance": round(random.uniform(0, 50), 2) if random.random() < 0.3 else 0
         }
     })
-
+@mlflow.trace(span_type="TOOL")
 def process_payment(customer_id: str, amount: float, payment_method_id: str):
     """
     Processes a payment for a customer.
@@ -276,7 +279,7 @@ def process_payment(customer_id: str, amount: float, payment_method_id: str):
                 "reference_id": f"ref_{random.randint(10000, 99999)}"
             }
         })
-
+@mlflow.trace(span_type="TOOL")
 def get_network_status(location: str):
     """
     Retrieves the network status for a given location.
@@ -336,7 +339,7 @@ def get_network_status(location: str):
         "status": "success",
         "data": scenario
     })
-
+@mlflow.trace(span_type="TOOL")
 def run_remote_device_diagnostics(device_imei: str):
     """
     Runs remote diagnostics on a device.
@@ -408,7 +411,7 @@ def run_remote_device_diagnostics(device_imei: str):
         "status": "success",
         "data": scenario
     })
-
+@mlflow.trace(span_type="TOOL")
 def create_support_ticket(customer_id: str, issue_description: str):
     """
     Creates a support ticket.
@@ -455,7 +458,7 @@ def create_support_ticket(customer_id: str, issue_description: str):
         "status": "success",
         "data": response
     })
-
+@mlflow.trace(span_type="TOOL")
 def search_knowledge_base(query: str):
     """
     Searches the knowledge base for a given query.
@@ -573,7 +576,7 @@ def search_knowledge_base(query: str):
             "total_results": len(found_articles)
         }
     })
-
+@mlflow.trace(span_type="TOOL")
 def get_insurance_coverage(customer_id: str, device_imei: str) -> str:
     """
     Retrieves insurance coverage for a device.
@@ -652,7 +655,7 @@ def get_insurance_coverage(customer_id: str, device_imei: str) -> str:
         "status": "success",
         "data": scenario
     })
-
+@mlflow.trace(span_type="TOOL")
 def process_insurance_claim(
     customer_id: str,
     device_imei: str,
@@ -741,7 +744,7 @@ def process_insurance_claim(
         "status": "success",
         "data": outcome
     })
-
+@mlflow.trace(span_type="TOOL")
 def get_data_usage(customer_id: str) -> str:
     """
     Retrieves data usage for a customer.
@@ -804,7 +807,7 @@ def get_data_usage(customer_id: str) -> str:
         "status": "success",
         "data": response
     })
-
+@mlflow.trace(span_type="TOOL")
 def escalate_to_human_agent(customer_id: str, ticket_id: str) -> str:
     """
     Escalates the issue to a human agent.

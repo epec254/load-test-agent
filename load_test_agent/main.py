@@ -11,6 +11,12 @@ from .utils import function_to_schema
 # Load environment variables
 load_dotenv()
 
+import logging
+import mlflow
+
+mlflow.openai.autolog()
+
+
 class Agent:
     """
     An agent that can have a conversation and use tools.
@@ -64,9 +70,11 @@ class Agent:
             function_to_schema(tools.escalate_to_human_agent),
         ]
 
+    @mlflow.trace
     def get_system_message(self, customer_id: str) -> dict:
         return {"role": "system", "content": f"You are a helpful telco customer support agent. Your customer ID is {customer_id}. Do not ask for it."}
 
+    @mlflow.trace
     def chat(self, messages: list, user_input: str, customer_id: str) -> tuple[list, str]:
         """
         Runs a single turn of the conversation.
@@ -107,6 +115,7 @@ class Agent:
                     if "customer_id" in function_to_call.__code__.co_varnames and "customer_id" not in function_args:
                         function_args["customer_id"] = customer_id
                     
+
                     function_response = function_to_call(**function_args)
                     
                     messages.append(
