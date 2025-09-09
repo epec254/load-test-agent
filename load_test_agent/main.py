@@ -75,7 +75,7 @@ class Agent:
         return {"role": "system", "content": f"You are a helpful telco customer support agent. Your customer ID is {customer_id}. Do not ask for it."}
 
     @mlflow.trace
-    def chat(self, messages: list, user_input: str, customer_id: str) -> tuple[list, str]:
+    def chat(self, messages: list, customer_id: str) -> list:
         """
         Runs a single turn of the conversation.
         """
@@ -83,8 +83,9 @@ class Agent:
         system_msg = self.get_system_message(customer_id)
         if not messages or messages[0].get("role") != "system":
             messages = [system_msg] + messages
-        
-        messages.append({"role": "user", "content": user_input})
+        else:
+            # Update the existing system message
+            messages[0] = system_msg
 
         response = self.client.chat.completions.create(
             model=self.model_name,
@@ -137,38 +138,33 @@ class Agent:
                 iteration += 1
             else:
                 # No more tool calls, we have the final response
-                final_response = response_message.content
-                messages.append({"role": "assistant", "content": final_response})
+                messages.append({"role": "assistant", "content": response_message.content})
                 break
         
         # If we hit max iterations, use the last response as final
         if iteration == max_iterations:
-            final_response = response.choices[0].message.content
-            messages.append({"role": "assistant", "content": final_response})
+            messages.append({"role": "assistant", "content": response.choices[0].message.content})
         
-        return messages, final_response
+        return messages
 
 app = FastAPI()
 agent = Agent()
 
 class ChatRequest(BaseModel):
-    history: List[Dict[str, Any]]
-    message: str
+    messages: List[Dict[str, Any]]
     customer_id: str
 
 class ChatResponse(BaseModel):
-    history: List[Dict[str, Any]]
-    response: str
+    messages: List[Dict[str, Any]]
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
     Handles a single turn of a conversation.
     """
-    messages = request.history
-    updated_messages, response = agent.chat(messages, request.message, request.customer_id)
+    updated_messages = agent.chat(request.messages, request.customer_id)
     
-    return ChatResponse(history=updated_messages, response=response)
+    return ChatResponse(messages=updated_messages)
 
 @app.get("/")
 async def root():
