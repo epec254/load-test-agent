@@ -99,14 +99,13 @@ def process_payment(customer_id: str, amount: float, payment_method_id: str):
     """
     Processes a payment for a customer.
     """
-    params = ProcessPaymentParams(customer_id=customer_id, amount=amount, payment_method_id=payment_method_id)
-    print(f"Tool: process_payment, customer_id: {params.customer_id}, amount: {params.amount}, payment_method_id: {params.payment_method_id}")
+    print(f"Tool: process_payment, customer_id: {customer_id}, amount: {amount}, payment_method_id: {payment_method_id}")
     return json.dumps({
         "status": "success",
         "data": {
             "transaction_id": f"txn_{random.randint(1000, 9999)}",
-            "amount": params.amount,
-            "new_balance": 150.00 - params.amount
+            "amount": amount,
+            "new_balance": 150.00 - amount
         }
     })
 
@@ -114,12 +113,11 @@ def get_network_status(location: str):
     """
     Retrieves the network status for a given location.
     """
-    params = GetNetworkStatusParams(location=location)
-    print(f"Tool: get_network_status, location: {params.location}")
+    print(f"Tool: get_network_status, location: {location}")
     return json.dumps({
         "status": "success",
         "data": {
-            "location": params.location,
+            "location": location,
             "network_status": "nominal",
             "known_outages": []
         }
@@ -129,8 +127,7 @@ def run_remote_device_diagnostics(device_imei: str):
     """
     Runs remote diagnostics on a device.
     """
-    params = RunRemoteDeviceDiagnosticsParams(device_imei=device_imei)
-    print(f"Tool: run_remote_device_diagnostics, device_imei: {params.device_imei}")
+    print(f"Tool: run_remote_device_diagnostics, device_imei: {device_imei}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -143,8 +140,7 @@ def create_support_ticket(customer_id: str, issue_description: str):
     """
     Creates a support ticket.
     """
-    params = CreateSupportTicketParams(customer_id=customer_id, issue_description=issue_description)
-    print(f"Tool: create_support_ticket, customer_id: {params.customer_id}, issue_description: {params.issue_description}")
+    print(f"Tool: create_support_ticket, customer_id: {customer_id}, issue_description: {issue_description}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -158,9 +154,8 @@ def search_knowledge_base(query: str):
     """
     Searches the knowledge base for a given query.
     """
-    params = SearchKnowledgeBaseParams(query=query)
-    print(f"Tool: search_knowledge_base, query: {params.query}")
-    if "no service" in params.query.lower():
+    print(f"Tool: search_knowledge_base, query: {query}")
+    if "no service" in query.lower():
         return json.dumps({
             "status": "success",
             "data": {

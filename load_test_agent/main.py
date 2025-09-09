@@ -66,15 +66,18 @@ class Agent:
             function_to_schema(tools.escalate_to_human_agent),
         ]
 
-    def get_initial_messages(self) -> list:
-        return [
-            {"role": "system", "content": f"You are a helpful telco customer support agent. Your customer ID is {self.customer_id}. Do not ask for it."},
-        ]
+    def get_system_message(self) -> dict:
+        return {"role": "system", "content": f"You are a helpful telco customer support agent. Your customer ID is {self.customer_id}. Do not ask for it."}
 
     def chat(self, messages: list, user_input: str) -> tuple[list, str]:
         """
         Runs a single turn of the conversation.
         """
+        # Always ensure system message is at the beginning
+        system_msg = self.get_system_message()
+        if not messages or messages[0].get("role") != "system":
+            messages = [system_msg] + messages
+        
         messages.append({"role": "user", "content": user_input})
 
         response = self.client.chat.completions.create(
@@ -96,7 +99,7 @@ class Agent:
             tool_calls = response_message.tool_calls
             
             if tool_calls:
-                messages.append(response_message)
+                messages.append(response_message.model_dump())
                 
                 for tool_call in tool_calls:
                     function_name = tool_call.function.name
@@ -155,9 +158,6 @@ async def chat(request: ChatRequest):
     Handles a single turn of a conversation.
     """
     messages = request.history
-    if not messages:
-        messages = agent.get_initial_messages()
-
     updated_messages, response = agent.chat(messages, request.message)
     
     return ChatResponse(history=updated_messages, response=response)
