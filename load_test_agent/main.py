@@ -15,8 +15,9 @@ load_dotenv()
 import logging
 import mlflow
 
-mlflow.openai.autolog()
+from .init_trace import start_tracing, log_user_session, generic_trace
 
+start_tracing()
 
 class Agent:
     """
@@ -71,11 +72,11 @@ class Agent:
             function_to_schema(tools.escalate_to_human_agent),
         ]
 
-    @mlflow.trace
+    @generic_trace
     def get_system_message(self, customer_id: str) -> dict:
         return {"role": "system", "content": f"You are a helpful telco customer support agent. Your customer ID is {customer_id}. Do not ask for it."}
 
-    @mlflow.trace
+    @generic_trace
     def chat(self, messages: list, customer_id: str, session_id: Optional[str] = None) -> dict:
         """
         Runs a single turn of the conversation.
@@ -85,12 +86,8 @@ class Agent:
         if not session_id:
             session_id = str(uuid.uuid4())
 
-        mlflow.update_current_trace(
-        metadata={
-            "mlflow.trace.user": customer_id,      # Links this trace to a specific user
-            "mlflow.trace.session": session_id, # Groups this trace with others in the same conversation
-        }
-        )
+
+        log_user_session(customer_id, session_id)
         
         # Always ensure system message is at the beginning
         system_msg = self.get_system_message(customer_id)
