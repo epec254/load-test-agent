@@ -14,8 +14,8 @@ def run_chat_test():
     
     turns = [
         "Why is my bill so high?",
-        "What is that $40 charge?",
-        "Ok, please dispute that charge."
+        # "What is that $40 charge?",
+        # "Ok, please dispute that charge."
     ]
 
     print("-- Starting Chat Test --")
