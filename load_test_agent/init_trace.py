@@ -5,7 +5,10 @@ import os
 import logging
 
 # Configuration for which tracing backend to use
-TRACING_BACKEND = os.getenv("TRACING_BACKEND", "otel_and_langfuse")
+# TRACING_BACKEND = os.getenv("TRACING_BACKEND", "otel_and_langfuse_and_mlflow") # does not work
+# TRACING_BACKEND = os.getenv("TRACING_BACKEND", "mlflow") # works
+TRACING_BACKEND = os.getenv("TRACING_BACKEND", "otel_and_langfuse") # works
+
 
 print(TRACING_BACKEND)
 
@@ -140,7 +143,7 @@ def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, *
             else:
                 # Default to workflow decorator for general tracing
                 return workflow(name=traceloop_name)(func)
-        elif TRACING_BACKEND in ["langfuse", "otel_and_langfuse"]:
+        elif TRACING_BACKEND in ["langfuse", "otel_and_langfuse", "otel_and_langfuse_and_mlflow"]:
             # Langfuse tracing using @observe decorator
             observe_kwargs = {}
             if name:
@@ -162,8 +165,24 @@ def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, *
             # Add any additional kwargs
             observe_kwargs.update(kwargs)
             
-            # Use Langfuse's @observe decorator
-            return observe(**observe_kwargs)(func)
+            # Apply decorators based on backend
+            if TRACING_BACKEND == "otel_and_langfuse_and_mlflow":
+                # Apply both MLflow and Langfuse decorators
+                # MLflow as outer decorator, Langfuse as inner
+                mlflow_kwargs = {}
+                if name:
+                    mlflow_kwargs["name"] = name
+                if span_type:
+                    mlflow_kwargs["span_type"] = span_type
+                mlflow_kwargs.update(kwargs)
+                
+                # Apply MLflow first (inner), then Langfuse (outer)
+                func_with_mlflow = mlflow.trace(**mlflow_kwargs)(func) if mlflow_kwargs else mlflow.trace(func)
+                traced_func = observe(**observe_kwargs)(func_with_mlflow)
+                return traced_func
+            else:
+                # Use Langfuse's @observe decorator only
+                return observe(**observe_kwargs)(func)
         # elif TRACING_BACKEND == "otel":
         #     # this is super janky spans - not that useful!
         #     def trace_function_io(func):
@@ -237,6 +256,12 @@ def start_tracing():
     elif TRACING_BACKEND == "otel_and_langfuse":
         get_otel_tracer_with_langfuse()
         print(f"OTEL & LangFuse initialized with backend: {TRACING_BACKEND}")
+    
+    elif TRACING_BACKEND == "otel_and_langfuse_and_mlflow":
+        # Initialize both OTEL/Langfuse and MLflow
+        get_otel_tracer_with_langfuse()
+        # mlflow.openai.autolog()
+        print(f"OTEL & LangFuse & MLflow initialized with backend: {TRACING_BACKEND}")
 
 def log_user_session(user_id, session_id):
     """
@@ -260,10 +285,19 @@ def log_user_session(user_id, session_id):
             "session_id": session_id,
             "chat_id": session_id  # chat_id can be same as session_id for conversations
         })
-    elif TRACING_BACKEND == "langfuse":
+    elif TRACING_BACKEND in ["langfuse", "otel_and_langfuse_and_mlflow", "otel_and_langfuse"]:
         # Update current trace with user and session information
         langfuse = get_langfuse_client()
         langfuse.update_current_trace(
             user_id=user_id,
             session_id=session_id
         )
+        
+        # # Also update MLflow if using combined backend
+        # if TRACING_BACKEND == "otel_and_langfuse_and_mlflow":
+        #     mlflow.update_current_trace(
+        #         metadata={
+        #             "mlflow.trace.user": user_id,
+        #             "mlflow.trace.session": session_id,
+        #         }
+        #     )
