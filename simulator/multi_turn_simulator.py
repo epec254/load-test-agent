@@ -350,7 +350,7 @@ class UserSimulator:
     """LLM-powered user simulator that maintains conversation context."""
     
     def __init__(self, llm_base_url: str = "http://0.0.0.0:4000", 
-                 api_key: str = "sk-1234567890", model: str = "gpt-5"):
+                 api_key: str = "sk-1234567890", model: str = "gpt-5-nano"):
         self.client = openai.OpenAI(base_url=llm_base_url, api_key=api_key)
         self.model = model
     
