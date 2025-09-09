@@ -26,10 +26,10 @@ class Agent:
         # Get environment variables
         api_key = os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_API_BASE")
-        self.model_name = os.getenv("MODEL_NAME", "gpt-4-turbo")
+        self.model_name = os.getenv("MODEL_NAME")
 
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set.")
+        if not api_key or not self.model_name:
+            raise ValueError("MODEL_NAME, OPENAI_API_KEY environment variable not set.")
 
         # Initialize the OpenAI client
         self.client = OpenAI(api_key=api_key, base_url=base_url)
