@@ -84,7 +84,7 @@ class ConversationState:
     conversation_id: str
     persona: Persona
     turn_number: int = 0
-    conversation_history: List[Dict[str, str]] = field(default_factory=list)  # Simple history like test_chat.py
+    messages: List[Dict[str, Any]] = field(default_factory=list)  # OpenAI format messages
     issues_raised: List[str] = field(default_factory=list)
     issues_resolved: List[str] = field(default_factory=list)
     current_issue_index: int = 0
@@ -733,7 +733,7 @@ class AgentClient:
             # Try the main endpoint with minimal data
             response = requests.post(
                 self.api_url,
-                json={"history": [], "message": "test", "customer_id": "test"},
+                json={"messages": [{"role": "user", "content": "test"}], "customer_id": "test"},
                 timeout=5
             )
             return response.status_code == 200
@@ -741,16 +741,18 @@ class AgentClient:
             print(f"Health check failed: {e}")
             return False
     
-    def send_message(self, message: str, history: List[Dict[str, str]], 
-                     customer_id: str) -> Tuple[str, List[Dict[str, str]]]:
+    def send_message(self, message: str, messages: List[Dict[str, Any]], 
+                     customer_id: str) -> Tuple[str, List[Dict[str, Any]]]:
         """Send a message to the agent and get response.
         
         Returns:
-            Tuple of (agent_response, updated_history)
+            Tuple of (agent_response, updated_messages)
         """
+        # Add the user message to the messages list
+        messages_with_user = messages + [{"role": "user", "content": message}]
+        
         payload = {
-            "history": history,
-            "message": message,
+            "messages": messages_with_user,
             "customer_id": customer_id
         }
         
@@ -759,10 +761,19 @@ class AgentClient:
             response.raise_for_status()
             
             data = response.json()
-            agent_response = data["response"]
-            updated_history = data["history"]
+            updated_messages = data["messages"]
             
-            return agent_response, updated_history
+            # Extract the last assistant message
+            agent_response = None
+            for msg in reversed(updated_messages):
+                if msg.get("role") == "assistant":
+                    agent_response = msg.get("content")
+                    break
+            
+            if not agent_response:
+                raise Exception("No assistant response found in messages")
+            
+            return agent_response, updated_messages
             
         except requests.exceptions.RequestException as e:
             raise Exception(f"Error calling API: {e}")
@@ -814,16 +825,16 @@ class ConversationOrchestrator:
                 
                 # Get agent response
                 try:
-                    agent_response, updated_history = self.agent_client.send_message(
+                    agent_response, updated_messages = self.agent_client.send_message(
                         current_message,
-                        state.conversation_history,
+                        state.messages,
                         persona.customer_id
                     )
                     
                     print(f"🤖 Agent: {agent_response}\n")
                     
-                    # Update conversation history with the new history from the agent
-                    state.conversation_history = updated_history
+                    # Update messages with the new messages from the agent
+                    state.messages = updated_messages
                     state.agent_responses.append(agent_response)
                     
                     # Generate user response
@@ -833,8 +844,8 @@ class ConversationOrchestrator:
                     
                     if should_end:
                         print(f"👤 User: {user_response}\n")
-                        # Add final user message to history
-                        state.conversation_history.append({"role": "user", "content": user_response})
+                        # Add final user message to messages
+                        state.messages.append({"role": "user", "content": user_response})
                         state.should_end = True
                         state.end_reason = end_reason
                         break
@@ -997,7 +1008,7 @@ def main():
                     for i in state.persona.issues
                 ],
                 "turn_count": state.turn_number,
-                "conversation_history": state.conversation_history,
+                "messages": state.messages,
                 "satisfaction_score": state.satisfaction_score,
                 "end_reason": state.end_reason,
                 "duration_seconds": (state.end_time - state.start_time).total_seconds() if state.end_time else 0,
