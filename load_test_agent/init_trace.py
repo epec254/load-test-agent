@@ -5,7 +5,7 @@ import os
 import logging
 
 # Configuration for which tracing backend to use
-TRACING_BACKEND = os.getenv("TRACING_BACKEND", "traceloop")
+TRACING_BACKEND = os.getenv("TRACING_BACKEND", "langfuse")
 
 print(TRACING_BACKEND)
 
@@ -36,25 +36,52 @@ def get_langfuse_client():
 
 # Global Traceloop client instance
 
-os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
-# Set up Databricks Workspace Client with OAuth authentication
-databricks_workspace_client = WorkspaceClient()
-auth_headers = databricks_workspace_client.config.authenticate()
+# os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
+# # Set up Databricks Workspace Client with OAuth authentication
+# databricks_workspace_client = WorkspaceClient()
+# auth_headers = databricks_workspace_client.config.authenticate()
 
 
-# Create OTLP exporter with debug info
-otlp_exporter = OTLPSpanExporter(
-    endpoint=os.environ['TRACELOOP_BASE_URL'],
-    headers={
-        "content-type": "application/x-protobuf",
-        # Retrieve the Databricks OAuth token from the Databricks Workspace Client
-        # and set it as a header
-        **auth_headers
-    }
-)
+# # Create OTLP exporter with debug info
+# otlp_exporter = OTLPSpanExporter(
+#     endpoint=os.environ['TRACELOOP_BASE_URL'],
+#     headers={
+#         "content-type": "application/x-protobuf",
+#         # Retrieve the Databricks OAuth token from the Databricks Workspace Client
+#         # and set it as a header
+#         **auth_headers
+#     }
+# )
 
-Traceloop.init(exporter=otlp_exporter)
+# Traceloop.init(exporter=otlp_exporter)
 
+
+# Global OTEL
+
+_otel_tracer = None
+def get_otel_tracer():
+    """Get or create the global OTEL client instance."""
+    global _otel_tracer
+    if _otel_tracer is None:
+        # Set endpoint via environment variable
+        os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
+
+        # Set up Databricks Workspace Client with OAuth authentication
+        databricks_workspace_client = WorkspaceClient()
+
+        # Set up OpenTelemetry Tracer
+        provider = TracerProvider()
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(
+            headers={
+                "content-type": "application/x-protobuf",
+                # Retrieve the Databricks OAuth token from the Databricks Workspace Client
+                # and set it as a header
+                **databricks_workspace_client.config.authenticate()
+            }
+        )))
+        trace.set_tracer_provider(provider)
+        _otel_tracer = trace.get_tracer(__name__)
+    return _otel_tracer
 
 
 def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, **kwargs):
@@ -131,6 +158,27 @@ def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, *
             
             # Use Langfuse's @observe decorator
             return observe(**observe_kwargs)(func)
+        elif TRACING_BACKEND == "otel":
+            
+            def trace_function_io(func):
+                tracer = get_otel_tracer()
+                def wrapper(*args, **kwargs):
+                    with tracer.start_as_current_span(func.__name__) as span:
+                        # Capture inputs
+                        span.set_attribute("function.args", str(args))
+                        span.set_attribute("function.kwargs", str(kwargs))
+
+                        result = func(*args, **kwargs)
+
+                        # Capture output
+                        span.set_attribute("function.return_value", str(result))
+                        return result
+                return wrapper
+            the_name = name or func.__name__
+
+            return trace_function_io(func)
+            return _tracer.start_as_current_span(the_name)(func)
+
         elif TRACING_BACKEND == "none":
             # No tracing - pass through
             return func
@@ -201,6 +249,9 @@ def start_tracing():
         get_langfuse_client()
         print(f"Langfuse initialized with backend: {TRACING_BACKEND}")
 
+    elif TRACING_BACKEND == "otel":
+        get_otel_tracer()
+        print(f"OTEL initialized with backend: {TRACING_BACKEND}")
 
 def log_user_session(user_id, session_id):
     """
