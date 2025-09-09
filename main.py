@@ -1,14 +1,203 @@
-import openai
 
-client = openai.OpenAI(
-    base_url="http://localhost:4000",
-    api_key="sk-1234567890",
-)
+import os
+import json
+import sys
+from openai import OpenAI
+from dotenv import load_dotenv
+import tools
 
-stream = client.chat.completions.create(
-    model="fast-cheap",
-    messages=[{"role": "user", "content": "Say this is a test"}],
-    stream=True,
-)
-for chunk in stream:
-    print(chunk.choices[0].delta.content or "", end="")
+# Load environment variables from .env file
+load_dotenv()
+
+# Get the API key and base URL from the environment
+api_key = os.getenv("OPENAI_API_KEY")
+base_url = os.getenv("OPENAI_API_BASE")
+model_name = os.getenv("MODEL_NAME", "fast-cheap")
+
+if not api_key:
+    raise ValueError("OPENAI_API_KEY environment variable not set.")
+
+# Initialize the OpenAI client
+client = OpenAI(api_key=api_key, base_url=base_url)
+
+def run_conversation(user_input: str):
+    """
+    Runs a single turn of the conversation with the agent.
+    """
+    # A fake customer ID for demonstration purposes
+    customer_id = "cust_12345"
+    
+    # The list of available tools
+    available_tools = {
+        "get_billing_history": tools.get_billing_history,
+        "get_charge_details": tools.get_charge_details,
+        "get_active_promotions": tools.get_active_promotions,
+        "get_account_balance": tools.get_account_balance,
+        "get_saved_payment_methods": tools.get_saved_payment_methods,
+        "process_payment": tools.process_payment,
+        "get_network_status": tools.get_network_status,
+        "run_remote_device_diagnostics": tools.run_remote_device_diagnostics,
+        "create_support_ticket": tools.create_support_ticket,
+        "search_knowledge_base": tools.search_knowledge_base,
+        "get_insurance_coverage": tools.get_insurance_coverage,
+        "process_insurance_claim": tools.process_insurance_claim,
+        "get_data_usage": tools.get_data_usage,
+        "escalate_to_human_agent": tools.escalate_to_human_agent,
+    }
+
+    # The tool definitions for the OpenAI API
+    tool_definitions = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_billing_history",
+                "description": "Retrieves the billing history for a given customer.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string", "description": "The ID of the customer."}
+                    },
+                    "required": ["customer_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "process_payment",
+                "description": "Processes a payment for a customer.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string", "description": "The ID of the customer."},
+                        "amount": {"type": "number", "description": "The amount to pay."},
+                        "payment_method_id": {"type": "string", "description": "The ID of the payment method to use."}
+                    },
+                    "required": ["customer_id", "amount", "payment_method_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_network_status",
+                "description": "Retrieves the network status for a given location.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {"type": "string", "description": "The location to check (e.g., city, address)."}
+                    },
+                    "required": ["location"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_support_ticket",
+                "description": "Creates a support ticket.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string", "description": "The ID of the customer."},
+                        "issue_description": {"type": "string", "description": "A description of the issue."}
+                    },
+                    "required": ["customer_id", "issue_description"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_knowledge_base",
+                "description": "Searches the knowledge base for a given query.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "The search query."}
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_data_usage",
+                "description": "Retrieves data usage for a customer.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string", "description": "The ID of the customer."}
+                    },
+                    "required": ["customer_id"],
+                },
+            },
+        },
+    ]
+
+    # The conversation history
+    messages = [
+        {"role": "system", "content": "You are a helpful telco customer support agent. Your customer ID is cust_12345. Do not ask for it."},
+        {"role": "user", "content": user_input}
+    ]
+
+    # First API call to get the tool calls
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=messages,
+        tools=tool_definitions,
+        tool_choice="auto",
+    )
+
+    response_message = response.choices[0].message
+    tool_calls = response_message.tool_calls
+
+    if tool_calls:
+        messages.append(response_message)  # Add the assistant's response with tool calls
+
+        # Execute all tool calls
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            function_to_call = available_tools[function_name]
+            function_args = json.loads(tool_call.function.arguments)
+            
+            # Add customer_id if it's missing and required by the tool
+            if "customer_id" in function_to_call.__code__.co_varnames and "customer_id" not in function_args:
+                function_args["customer_id"] = customer_id
+
+            function_response = function_to_call(**function_args)
+            
+            messages.append(
+                {
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": function_name,
+                    "content": function_response,
+                }
+            )
+
+        # Second API call to get the final response
+        second_response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+        )
+        final_response = second_response.choices[0].message.content
+        print(f"Agent: {final_response}")
+    else:
+        # If no tool calls, just print the response
+        final_response = response_message.content
+        print(f"Agent: {final_response}")
+
+def main():
+    """
+    Main entry point of the script.
+    """
+    if len(sys.argv) < 2:
+        print("Usage: python main.py <query>")
+        sys.exit(1)
+    user_input = " ".join(sys.argv[1:])
+    run_conversation(user_input)
+
+if __name__ == "__main__":
+    main()

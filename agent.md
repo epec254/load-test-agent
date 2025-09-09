@@ -1,27 +1,7 @@
-# Telco Customer Support Multi-Agent System
+# Telco Customer Support Agent System
 
 ## Executive Summary
-The Telco Customer Support Multi-Agent System is an AI-powered customer service platform designed to handle telecommunications customer inquiries through intelligent routing and specialized agent capabilities. The system leverages a supervisor-agent architecture to efficiently process and respond to customer queries across multiple domains including account management, billing, technical support, and product information.
-
-## Business Goals
-
-| Metric | Current State | With AI Agent | Improvement |
-| :---- | :---- | :---- | :---- |
-| **Cost per Contact** | **$7.20** | **$2.45** | **66% reduction** |
-| **First Call Resolution** | **65%** | **92%** | **42% increase** |
-| **Abandonment Rate** | **12%** | **3%** | **75% reduction** |
-| Average Handle Time | 15 minutes | 5 minutes | 67% reduction |
-| Customer Wait Time | 5-6 minutes | 1.2 minutes | 78% reduction |
-| CSAT | 3.8/5 | 4.6/5 | 21% increase |
-
-## User Interface & Access
-The multi-agent system is exposed through the telco's website as an integrated customer support interface. Customer identity is automatically and deterministically passed through from the website's authentication system, ensuring seamless and secure access without requiring additional login steps.  The user can view & continue previous chats or start a new chat.
-
-## User Persona
-The primary user persona is the telco's end customer - individuals who are seeking assistance with their telecommunications services. These users interact directly with the AI agents to resolve issues, get information about their accounts, manage billing inquiries, troubleshoot technical problems, or learn about products and services.
-
-## Escalation
-The agent will escalate to a human if the query is not supported or when the agent detects that the end user is frustrated / requests a real human.
+The Telco Customer Support Agent System is an AI-powered customer service platform designed to handle telecommunications customer inquiries through intelligent routing and specialized agent capabilities. The system leverages a supervisor-agent architecture to efficiently process and respond to customer queries across multiple domains including account management, billing, technical support, and product information.
 
 ## Supported Queries
 
