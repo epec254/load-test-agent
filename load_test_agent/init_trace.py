@@ -2,9 +2,10 @@ import mlflow
 from functools import wraps
 from typing import Callable, Optional, Any
 import os
+import logging
 
 # Configuration for which tracing backend to use
-TRACING_BACKEND = os.getenv("TRACING_BACKEND", "langfuse")
+TRACING_BACKEND = os.getenv("TRACING_BACKEND", "traceloop")
 
 print(TRACING_BACKEND)
 
@@ -18,7 +19,7 @@ from databricks.sdk import WorkspaceClient
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
 from langfuse import observe, Langfuse
 
@@ -32,6 +33,29 @@ def get_langfuse_client():
     if _langfuse_client is None:
         _langfuse_client = Langfuse()
     return _langfuse_client
+
+# Global Traceloop client instance
+
+os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
+# Set up Databricks Workspace Client with OAuth authentication
+databricks_workspace_client = WorkspaceClient()
+auth_headers = databricks_workspace_client.config.authenticate()
+
+
+# Create OTLP exporter with debug info
+otlp_exporter = OTLPSpanExporter(
+    endpoint=os.environ['TRACELOOP_BASE_URL'],
+    headers={
+        "content-type": "application/x-protobuf",
+        # Retrieve the Databricks OAuth token from the Databricks Workspace Client
+        # and set it as a header
+        **auth_headers
+    }
+)
+
+Traceloop.init(exporter=otlp_exporter)
+
+
 
 def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, **kwargs):
     """
@@ -63,10 +87,11 @@ def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, *
         elif TRACING_BACKEND in ["opentelemetry", "traceloop"]:
             # OpenTelemetry/Traceloop tracing
          
-            print('dfdsfds')
+            
             # Use Traceloop's specific decorators based on span_type
             traceloop_name = name or func.__name__
-            
+
+            # return workflow()(func)
             if span_type == "TOOL":
                 # Use @tool decorator for tools
                 return tool(name=traceloop_name)(func)
@@ -144,51 +169,32 @@ def start_tracing():
         mlflow.openai.autolog()
     elif TRACING_BACKEND in ["opentelemetry", "traceloop"]:
 
-        os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
-        # Set up Databricks Workspace Client with OAuth authentication
-        databricks_workspace_client = WorkspaceClient()
+        # os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
+        # # Set up Databricks Workspace Client with OAuth authentication
+        # databricks_workspace_client = WorkspaceClient()
+        # auth_headers = databricks_workspace_client.config.authenticate()
 
-        # Set up OpenTelemetry Tracer
-        # provider = TracerProvider()
-        exporter = OTLPSpanExporter(
-            headers={
-                "content-type": "application/x-protobuf",
-                # Retrieve the Databricks OAuth token from the Databricks Workspace Client
-                # and set it as a header
-                **databricks_workspace_client.config.authenticate()
-            },
-            endpoint=os.environ['TRACELOOP_BASE_URL']
-        )
-        # provider.add_span_processor(BatchSpanProcessor()
-        # trace.set_tracer_provider(provider)
-        # tracer = trace.get_tracer(__name__)
 
-        
-    
-        # print('jjj')
-        # # Initialize Traceloop with configuration from environment
-        
+        # os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
 
-        # print(os.environ['TRACELOOP_BASE_URL'])
-        
-        # traceloop_kwargs = {}
-        # if api_key:
-        #     traceloop_kwargs["api_key"] = api_key
-        # if base_url:
-        #     traceloop_kwargs["base_url"] = base_url
-        # if headers:
-        #     import json
-        #     try:
-        #         traceloop_kwargs["headers"] = json.loads(headers)
-        #     except json.JSONDecodeError:
-        #         pass
-        
-        # Initialize Traceloop
-        
-        Traceloop.init(exporter=exporter, disable_batch=True)
+        # # Create OTLP exporter with debug info
+        # otlp_exporter = OTLPSpanExporter(
+        #     endpoint=os.environ['TRACELOOP_BASE_URL'],
+        #     headers={
+        #         "content-type": "application/x-protobuf",
+        #         # Retrieve the Databricks OAuth token from the Databricks Workspace Client
+        #         # and set it as a header
+        #         **auth_headers
+        #     }
+        # )
 
+
+
+        # Traceloop.init(exporter=otlp_exporter)
 
         print(f"Traceloop initialized with backend: {TRACING_BACKEND}")
+        
+        
     elif TRACING_BACKEND == "langfuse":
         # Initialize Langfuse client (it will use env variables automatically)
         # LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_HOST
