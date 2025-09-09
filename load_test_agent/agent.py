@@ -4,7 +4,7 @@ import json
 from openai import OpenAI
 from dotenv import load_dotenv
 from . import tools
-from .tool_schemas import TOOL_DEFINITIONS
+from .utils import function_to_schema
 
 # Load environment variables
 load_dotenv()
@@ -46,8 +46,23 @@ class Agent:
             "escalate_to_human_agent": tools.escalate_to_human_agent,
         }
 
-        # The tool definitions for the OpenAI API - now using parse_function from tool_schemas
-        self.tool_definitions = TOOL_DEFINITIONS
+        # The tool definitions for the OpenAI API - generated from function signatures
+        self.tool_definitions = [
+            function_to_schema(tools.get_billing_history),
+            function_to_schema(tools.get_charge_details),
+            function_to_schema(tools.get_active_promotions),
+            function_to_schema(tools.get_account_balance),
+            function_to_schema(tools.get_saved_payment_methods),
+            function_to_schema(tools.process_payment),
+            function_to_schema(tools.get_network_status),
+            function_to_schema(tools.run_remote_device_diagnostics),
+            function_to_schema(tools.create_support_ticket),
+            function_to_schema(tools.search_knowledge_base),
+            function_to_schema(tools.get_insurance_coverage),
+            function_to_schema(tools.process_insurance_claim),
+            function_to_schema(tools.get_data_usage),
+            function_to_schema(tools.escalate_to_human_agent),
+        ]
 
     def get_initial_messages(self) -> list:
         return [

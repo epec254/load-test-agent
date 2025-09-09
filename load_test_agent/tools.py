@@ -5,30 +5,16 @@ Fake tools for the Telco Customer Support Agent.
 import json
 import random
 import datetime
-from .tool_schemas import (
-    GetBillingHistoryParams,
-    GetChargeDetailsParams,
-    GetActivePromotionsParams,
-    GetAccountBalanceParams,
-    GetSavedPaymentMethodsParams,
-    ProcessPaymentParams,
-    GetNetworkStatusParams,
-    RunRemoteDeviceDiagnosticsParams,
-    CreateSupportTicketParams,
-    SearchKnowledgeBaseParams,
-    GetInsuranceCoverageParams,
-    ProcessInsuranceClaimParams,
-    GetDataUsageParams,
-    EscalateToHumanAgentParams,
-)
+from typing import Literal
 
-def get_billing_history(customer_id: str):
+def get_billing_history(customer_id: str) -> str:
     """
     Retrieves the billing history for a given customer.
+    
+    Args:
+        customer_id: The ID of the customer
     """
-    # Validate using Pydantic model
-    params = GetBillingHistoryParams(customer_id=customer_id)
-    print(f"Tool: get_billing_history, customer_id: {params.customer_id}")
+    print(f"Tool: get_billing_history, customer_id: {customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -40,28 +26,32 @@ def get_billing_history(customer_id: str):
         }
     })
 
-def get_charge_details(charge_id: str):
+def get_charge_details(charge_id: str) -> str:
     """
     Retrieves details for a specific charge.
+    
+    Args:
+        charge_id: The ID of the charge
     """
-    params = GetChargeDetailsParams(charge_id=charge_id)
-    print(f"Tool: get_charge_details, charge_id: {params.charge_id}")
+    print(f"Tool: get_charge_details, charge_id: {charge_id}")
     return json.dumps({
         "status": "success",
         "data": {
-            "charge_id": params.charge_id,
+            "charge_id": charge_id,
             "description": "One-time data pack",
             "amount": 40.00,
             "date": "2025-06-10"
         }
     })
 
-def get_active_promotions(customer_id: str):
+def get_active_promotions(customer_id: str) -> str:
     """
     Retrieves active promotions for a given customer.
+    
+    Args:
+        customer_id: The ID of the customer
     """
-    params = GetActivePromotionsParams(customer_id=customer_id)
-    print(f"Tool: get_active_promotions, customer_id: {params.customer_id}")
+    print(f"Tool: get_active_promotions, customer_id: {customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -71,12 +61,14 @@ def get_active_promotions(customer_id: str):
         }
     })
 
-def get_account_balance(customer_id: str):
+def get_account_balance(customer_id: str) -> str:
     """
     Retrieves the current account balance for a given customer.
+    
+    Args:
+        customer_id: The ID of the customer
     """
-    params = GetAccountBalanceParams(customer_id=customer_id)
-    print(f"Tool: get_account_balance, customer_id: {params.customer_id}")
+    print(f"Tool: get_account_balance, customer_id: {customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -85,12 +77,14 @@ def get_account_balance(customer_id: str):
         }
     })
 
-def get_saved_payment_methods(customer_id: str):
+def get_saved_payment_methods(customer_id: str) -> str:
     """
     Retrieves the saved payment methods for a given customer.
+    
+    Args:
+        customer_id: The ID of the customer
     """
-    params = GetSavedPaymentMethodsParams(customer_id=customer_id)
-    print(f"Tool: get_saved_payment_methods, customer_id: {params.customer_id}")
+    print(f"Tool: get_saved_payment_methods, customer_id: {customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -140,7 +134,7 @@ def run_remote_device_diagnostics(device_imei: str):
     return json.dumps({
         "status": "success",
         "data": {
-            "imei": params.device_imei,
+            "imei": device_imei,
             "diagnostics_result": "All systems nominal. Device is connected to the network."
         }
     })
@@ -178,16 +172,19 @@ def search_knowledge_base(query: str):
     return json.dumps({"status": "success", "data": {"articles": []}})
 
 
-def get_insurance_coverage(customer_id: str, device_imei: str):
+def get_insurance_coverage(customer_id: str, device_imei: str) -> str:
     """
     Retrieves insurance coverage for a device.
+    
+    Args:
+        customer_id: The ID of the customer
+        device_imei: The IMEI of the device
     """
-    params = GetInsuranceCoverageParams(customer_id=customer_id, device_imei=device_imei)
-    print(f"Tool: get_insurance_coverage, customer_id: {params.customer_id}, device_imei: {params.device_imei}")
+    print(f"Tool: get_insurance_coverage, customer_id: {customer_id}, device_imei: {device_imei}")
     return json.dumps({
         "status": "success",
         "data": {
-            "imei": params.device_imei,
+            "imei": device_imei,
             "is_covered": True,
             "deductible": {
                 "screen_damage": 100.00,
@@ -197,12 +194,22 @@ def get_insurance_coverage(customer_id: str, device_imei: str):
         }
     })
 
-def process_insurance_claim(customer_id: str, device_imei: str, claim_type: str, incident_description: str):
+def process_insurance_claim(
+    customer_id: str,
+    device_imei: str,
+    claim_type: Literal["screen_damage", "water_damage", "theft_loss"],
+    incident_description: str
+) -> str:
     """
     Processes an insurance claim.
+    
+    Args:
+        customer_id: The ID of the customer
+        device_imei: The IMEI of the device
+        claim_type: The type of claim (screen_damage, water_damage, or theft_loss)
+        incident_description: Description of the incident
     """
-    params = ProcessInsuranceClaimParams(customer_id=customer_id, device_imei=device_imei, claim_type=claim_type, incident_description=incident_description)
-    print(f"Tool: process_insurance_claim, customer_id: {params.customer_id}, device_imei: {params.device_imei}, claim_type: {params.claim_type}")
+    print(f"Tool: process_insurance_claim, customer_id: {customer_id}, device_imei: {device_imei}, claim_type: {claim_type}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -212,12 +219,14 @@ def process_insurance_claim(customer_id: str, device_imei: str, claim_type: str,
         }
     })
 
-def get_data_usage(customer_id: str):
+def get_data_usage(customer_id: str) -> str:
     """
     Retrieves data usage for a customer.
+    
+    Args:
+        customer_id: The ID of the customer
     """
-    params = GetDataUsageParams(customer_id=customer_id)
-    print(f"Tool: get_data_usage, customer_id: {params.customer_id}")
+    print(f"Tool: get_data_usage, customer_id: {customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -228,12 +237,15 @@ def get_data_usage(customer_id: str):
         }
     })
 
-def escalate_to_human_agent(customer_id: str, ticket_id: str):
+def escalate_to_human_agent(customer_id: str, ticket_id: str) -> str:
     """
     Escalates the issue to a human agent.
+    
+    Args:
+        customer_id: The ID of the customer
+        ticket_id: The ID of the support ticket
     """
-    params = EscalateToHumanAgentParams(customer_id=customer_id, ticket_id=ticket_id)
-    print(f"Tool: escalate_to_human_agent, customer_id: {params.customer_id}, ticket_id: {params.ticket_id}")
+    print(f"Tool: escalate_to_human_agent, customer_id: {customer_id}, ticket_id: {ticket_id}")
     return json.dumps({
         "status": "success",
         "data": {
