@@ -23,7 +23,8 @@ def run_chat_test():
         
         payload = {
             "history": conversation_history,
-            "message": turn
+            "message": turn,
+            "customer_id": "cust_12345"
         }
         
         try:

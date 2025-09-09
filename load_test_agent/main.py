@@ -27,8 +27,6 @@ class Agent:
         # Initialize the OpenAI client
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-        # A fake customer ID for demonstration purposes
-        self.customer_id = "cust_12345"
 
         # The list of available tools
         self.available_tools = {
@@ -66,15 +64,15 @@ class Agent:
             function_to_schema(tools.escalate_to_human_agent),
         ]
 
-    def get_system_message(self) -> dict:
-        return {"role": "system", "content": f"You are a helpful telco customer support agent. Your customer ID is {self.customer_id}. Do not ask for it."}
+    def get_system_message(self, customer_id: str) -> dict:
+        return {"role": "system", "content": f"You are a helpful telco customer support agent. Your customer ID is {customer_id}. Do not ask for it."}
 
-    def chat(self, messages: list, user_input: str) -> tuple[list, str]:
+    def chat(self, messages: list, user_input: str, customer_id: str) -> tuple[list, str]:
         """
         Runs a single turn of the conversation.
         """
         # Always ensure system message is at the beginning
-        system_msg = self.get_system_message()
+        system_msg = self.get_system_message(customer_id)
         if not messages or messages[0].get("role") != "system":
             messages = [system_msg] + messages
         
@@ -107,7 +105,7 @@ class Agent:
                     function_args = json.loads(tool_call.function.arguments)
                     
                     if "customer_id" in function_to_call.__code__.co_varnames and "customer_id" not in function_args:
-                        function_args["customer_id"] = self.customer_id
+                        function_args["customer_id"] = customer_id
                     
                     function_response = function_to_call(**function_args)
                     
@@ -147,6 +145,7 @@ agent = Agent()
 class ChatRequest(BaseModel):
     history: List[Dict[str, Any]]
     message: str
+    customer_id: str
 
 class ChatResponse(BaseModel):
     history: List[Dict[str, Any]]
@@ -158,7 +157,7 @@ async def chat(request: ChatRequest):
     Handles a single turn of a conversation.
     """
     messages = request.history
-    updated_messages, response = agent.chat(messages, request.message)
+    updated_messages, response = agent.chat(messages, request.message, request.customer_id)
     
     return ChatResponse(history=updated_messages, response=response)
 
