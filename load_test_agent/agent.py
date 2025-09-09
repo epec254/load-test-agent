@@ -4,6 +4,7 @@ import json
 from openai import OpenAI
 from dotenv import load_dotenv
 from . import tools
+from .tool_schemas import TOOL_DEFINITIONS
 
 # Load environment variables
 load_dotenv()
@@ -45,24 +46,8 @@ class Agent:
             "escalate_to_human_agent": tools.escalate_to_human_agent,
         }
 
-        # The tool definitions for the OpenAI API
-        self.tool_definitions = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_billing_history",
-                    "description": "Retrieves the billing history for a given customer.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "customer_id": {"type": "string", "description": "The ID of the customer."}
-                        },
-                        "required": ["customer_id"],
-                    },
-                },
-            },
-            # ... (omitting the rest for brevity in thought process)
-        ]
+        # The tool definitions for the OpenAI API - now using parse_function from tool_schemas
+        self.tool_definitions = TOOL_DEFINITIONS
 
     def get_initial_messages(self) -> list:
         return [

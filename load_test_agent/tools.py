@@ -5,12 +5,30 @@ Fake tools for the Telco Customer Support Agent.
 import json
 import random
 import datetime
+from .tool_schemas import (
+    GetBillingHistoryParams,
+    GetChargeDetailsParams,
+    GetActivePromotionsParams,
+    GetAccountBalanceParams,
+    GetSavedPaymentMethodsParams,
+    ProcessPaymentParams,
+    GetNetworkStatusParams,
+    RunRemoteDeviceDiagnosticsParams,
+    CreateSupportTicketParams,
+    SearchKnowledgeBaseParams,
+    GetInsuranceCoverageParams,
+    ProcessInsuranceClaimParams,
+    GetDataUsageParams,
+    EscalateToHumanAgentParams,
+)
 
 def get_billing_history(customer_id: str):
     """
     Retrieves the billing history for a given customer.
     """
-    print(f"Tool: get_billing_history, customer_id: {customer_id}")
+    # Validate using Pydantic model
+    params = GetBillingHistoryParams(customer_id=customer_id)
+    print(f"Tool: get_billing_history, customer_id: {params.customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -26,11 +44,12 @@ def get_charge_details(charge_id: str):
     """
     Retrieves details for a specific charge.
     """
-    print(f"Tool: get_charge_details, charge_id: {charge_id}")
+    params = GetChargeDetailsParams(charge_id=charge_id)
+    print(f"Tool: get_charge_details, charge_id: {params.charge_id}")
     return json.dumps({
         "status": "success",
         "data": {
-            "charge_id": charge_id,
+            "charge_id": params.charge_id,
             "description": "One-time data pack",
             "amount": 40.00,
             "date": "2025-06-10"
@@ -41,7 +60,8 @@ def get_active_promotions(customer_id: str):
     """
     Retrieves active promotions for a given customer.
     """
-    print(f"Tool: get_active_promotions, customer_id: {customer_id}")
+    params = GetActivePromotionsParams(customer_id=customer_id)
+    print(f"Tool: get_active_promotions, customer_id: {params.customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -55,7 +75,8 @@ def get_account_balance(customer_id: str):
     """
     Retrieves the current account balance for a given customer.
     """
-    print(f"Tool: get_account_balance, customer_id: {customer_id}")
+    params = GetAccountBalanceParams(customer_id=customer_id)
+    print(f"Tool: get_account_balance, customer_id: {params.customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -68,7 +89,8 @@ def get_saved_payment_methods(customer_id: str):
     """
     Retrieves the saved payment methods for a given customer.
     """
-    print(f"Tool: get_saved_payment_methods, customer_id: {customer_id}")
+    params = GetSavedPaymentMethodsParams(customer_id=customer_id)
+    print(f"Tool: get_saved_payment_methods, customer_id: {params.customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -83,13 +105,14 @@ def process_payment(customer_id: str, amount: float, payment_method_id: str):
     """
     Processes a payment for a customer.
     """
-    print(f"Tool: process_payment, customer_id: {customer_id}, amount: {amount}, payment_method_id: {payment_method_id}")
+    params = ProcessPaymentParams(customer_id=customer_id, amount=amount, payment_method_id=payment_method_id)
+    print(f"Tool: process_payment, customer_id: {params.customer_id}, amount: {params.amount}, payment_method_id: {params.payment_method_id}")
     return json.dumps({
         "status": "success",
         "data": {
             "transaction_id": f"txn_{random.randint(1000, 9999)}",
-            "amount": amount,
-            "new_balance": 150.00 - amount
+            "amount": params.amount,
+            "new_balance": 150.00 - params.amount
         }
     })
 
@@ -97,11 +120,12 @@ def get_network_status(location: str):
     """
     Retrieves the network status for a given location.
     """
-    print(f"Tool: get_network_status, location: {location}")
+    params = GetNetworkStatusParams(location=location)
+    print(f"Tool: get_network_status, location: {params.location}")
     return json.dumps({
         "status": "success",
         "data": {
-            "location": location,
+            "location": params.location,
             "network_status": "nominal",
             "known_outages": []
         }
@@ -111,11 +135,12 @@ def run_remote_device_diagnostics(device_imei: str):
     """
     Runs remote diagnostics on a device.
     """
-    print(f"Tool: run_remote_device_diagnostics, device_imei: {device_imei}")
+    params = RunRemoteDeviceDiagnosticsParams(device_imei=device_imei)
+    print(f"Tool: run_remote_device_diagnostics, device_imei: {params.device_imei}")
     return json.dumps({
         "status": "success",
         "data": {
-            "imei": device_imei,
+            "imei": params.device_imei,
             "diagnostics_result": "All systems nominal. Device is connected to the network."
         }
     })
@@ -124,7 +149,8 @@ def create_support_ticket(customer_id: str, issue_description: str):
     """
     Creates a support ticket.
     """
-    print(f"Tool: create_support_ticket, customer_id: {customer_id}, issue_description: {issue_description}")
+    params = CreateSupportTicketParams(customer_id=customer_id, issue_description=issue_description)
+    print(f"Tool: create_support_ticket, customer_id: {params.customer_id}, issue_description: {params.issue_description}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -138,8 +164,9 @@ def search_knowledge_base(query: str):
     """
     Searches the knowledge base for a given query.
     """
-    print(f"Tool: search_knowledge_base, query: {query}")
-    if "no service" in query.lower():
+    params = SearchKnowledgeBaseParams(query=query)
+    print(f"Tool: search_knowledge_base, query: {params.query}")
+    if "no service" in params.query.lower():
         return json.dumps({
             "status": "success",
             "data": {
@@ -155,11 +182,12 @@ def get_insurance_coverage(customer_id: str, device_imei: str):
     """
     Retrieves insurance coverage for a device.
     """
-    print(f"Tool: get_insurance_coverage, customer_id: {customer_id}, device_imei: {device_imei}")
+    params = GetInsuranceCoverageParams(customer_id=customer_id, device_imei=device_imei)
+    print(f"Tool: get_insurance_coverage, customer_id: {params.customer_id}, device_imei: {params.device_imei}")
     return json.dumps({
         "status": "success",
         "data": {
-            "imei": device_imei,
+            "imei": params.device_imei,
             "is_covered": True,
             "deductible": {
                 "screen_damage": 100.00,
@@ -173,7 +201,8 @@ def process_insurance_claim(customer_id: str, device_imei: str, claim_type: str,
     """
     Processes an insurance claim.
     """
-    print(f"Tool: process_insurance_claim, customer_id: {customer_id}, device_imei: {device_imei}, claim_type: {claim_type}")
+    params = ProcessInsuranceClaimParams(customer_id=customer_id, device_imei=device_imei, claim_type=claim_type, incident_description=incident_description)
+    print(f"Tool: process_insurance_claim, customer_id: {params.customer_id}, device_imei: {params.device_imei}, claim_type: {params.claim_type}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -187,7 +216,8 @@ def get_data_usage(customer_id: str):
     """
     Retrieves data usage for a customer.
     """
-    print(f"Tool: get_data_usage, customer_id: {customer_id}")
+    params = GetDataUsageParams(customer_id=customer_id)
+    print(f"Tool: get_data_usage, customer_id: {params.customer_id}")
     return json.dumps({
         "status": "success",
         "data": {
@@ -202,7 +232,8 @@ def escalate_to_human_agent(customer_id: str, ticket_id: str):
     """
     Escalates the issue to a human agent.
     """
-    print(f"Tool: escalate_to_human_agent, customer_id: {customer_id}, ticket_id: {ticket_id}")
+    params = EscalateToHumanAgentParams(customer_id=customer_id, ticket_id=ticket_id)
+    print(f"Tool: escalate_to_human_agent, customer_id: {params.customer_id}, ticket_id: {params.ticket_id}")
     return json.dumps({
         "status": "success",
         "data": {
