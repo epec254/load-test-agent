@@ -38,6 +38,7 @@ def get_langfuse_client():
     return _langfuse_client
 
 # Global Traceloop client instance
+# JANKY BC IT MUST BE DONE HERE!
 
 # os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
 # # Set up Databricks Workspace Client with OAuth authentication
@@ -68,7 +69,7 @@ def get_otel_tracer_with_langfuse():
     global _langfuse_client
     if _otel_tracer is None:
         # Set endpoint via environment variable
-        os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
+        # os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
 
         # Set up Databricks Workspace Client with OAuth authentication
         databricks_workspace_client = WorkspaceClient()
@@ -84,7 +85,7 @@ def get_otel_tracer_with_langfuse():
             }
         )))
         trace.set_tracer_provider(provider)
-        _langfuse_client = Langfuse(tracer_provider=provider)
+        _langfuse_client = Langfuse(tracer_provider=provider) # connect langfuse in to send its spans to DBX too
         _otel_tracer = trace.get_tracer(__name__)
     return _otel_tracer
 
