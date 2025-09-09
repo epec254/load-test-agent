@@ -1,8 +1,9 @@
 import os
 import json
+import uuid
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from openai import OpenAI
 from dotenv import load_dotenv
 from . import tools
@@ -75,10 +76,22 @@ class Agent:
         return {"role": "system", "content": f"You are a helpful telco customer support agent. Your customer ID is {customer_id}. Do not ask for it."}
 
     @mlflow.trace
-    def chat(self, messages: list, customer_id: str) -> list:
+    def chat(self, messages: list, customer_id: str, session_id: Optional[str] = None) -> dict:
         """
         Runs a single turn of the conversation.
+        Returns: dict with messages and session_id
         """
+        # Generate session_id if not provided
+        if not session_id:
+            session_id = str(uuid.uuid4())
+
+        mlflow.update_current_trace(
+        metadata={
+            "mlflow.trace.user": customer_id,      # Links this trace to a specific user
+            "mlflow.trace.session": session_id, # Groups this trace with others in the same conversation
+        }
+        )
+        
         # Always ensure system message is at the beginning
         system_msg = self.get_system_message(customer_id)
         if not messages or messages[0].get("role") != "system":
@@ -145,7 +158,7 @@ class Agent:
         if iteration == max_iterations:
             messages.append({"role": "assistant", "content": response.choices[0].message.content})
         
-        return messages
+        return {"messages": messages, "session_id": session_id}
 
 app = FastAPI()
 agent = Agent()
@@ -153,18 +166,20 @@ agent = Agent()
 class ChatRequest(BaseModel):
     messages: List[Dict[str, Any]]
     customer_id: str
+    session_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     messages: List[Dict[str, Any]]
+    session_id: str
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
     Handles a single turn of a conversation.
     """
-    updated_messages = agent.chat(request.messages, request.customer_id)
+    result = agent.chat(request.messages, request.customer_id, request.session_id)
     
-    return ChatResponse(messages=updated_messages)
+    return ChatResponse(messages=result["messages"], session_id=result["session_id"])
 
 @app.get("/")
 async def root():

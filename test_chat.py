@@ -10,6 +10,7 @@ def run_chat_test():
     """
     messages = []
     customer_id = "cust_12345"
+    session_id = None  # Will be set by the agent on first request
     
     turns = [
         "Why is my bill so high?",
@@ -19,7 +20,7 @@ def run_chat_test():
 
     print("-- Starting Chat Test --")
 
-    for turn in turns:
+    for i, turn in enumerate(turns):
         print(f"\n> You: {turn}")
         
         # Add user message to the conversation
@@ -29,6 +30,10 @@ def run_chat_test():
             "messages": messages,
             "customer_id": customer_id
         }
+        
+        # Include session_id if we have one (after first request)
+        if session_id:
+            payload["session_id"] = session_id
         
         try:
             response = requests.post(API_URL, json=payload)
@@ -42,6 +47,12 @@ def run_chat_test():
             
             data = response.json()
             messages = data["messages"]
+            
+            # Extract and store the session_id
+            if "session_id" in data:
+                if i == 0:
+                    print(f"Session ID created: {data['session_id']}")
+                session_id = data["session_id"]
             
             # Extract the last assistant message
             agent_response = None
@@ -57,7 +68,7 @@ def run_chat_test():
             print(f"Error calling API: {e}")
             break
 
-    print("\n-- Chat Test Ended --")
+    print(f"\n-- Chat Test Ended (Session: {session_id}) --")
 
 if __name__ == "__main__":
     run_chat_test()
