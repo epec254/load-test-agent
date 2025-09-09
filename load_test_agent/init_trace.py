@@ -5,7 +5,7 @@ import os
 import logging
 
 # Configuration for which tracing backend to use
-TRACING_BACKEND = os.getenv("TRACING_BACKEND", "langfuse")
+TRACING_BACKEND = os.getenv("TRACING_BACKEND", "otel_and_langfuse")
 
 print(TRACING_BACKEND)
 
@@ -22,6 +22,9 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
 from langfuse import observe, Langfuse
+
+
+
 
 
 # Global Langfuse client instance
@@ -59,9 +62,10 @@ def get_langfuse_client():
 # Global OTEL
 
 _otel_tracer = None
-def get_otel_tracer():
+def get_otel_tracer_with_langfuse():
     """Get or create the global OTEL client instance."""
     global _otel_tracer
+    global _langfuse_client
     if _otel_tracer is None:
         # Set endpoint via environment variable
         os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
@@ -80,6 +84,7 @@ def get_otel_tracer():
             }
         )))
         trace.set_tracer_provider(provider)
+        _langfuse_client = Langfuse(tracer_provider=provider)
         _otel_tracer = trace.get_tracer(__name__)
     return _otel_tracer
 
@@ -134,7 +139,7 @@ def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, *
             else:
                 # Default to workflow decorator for general tracing
                 return workflow(name=traceloop_name)(func)
-        elif TRACING_BACKEND == "langfuse":
+        elif TRACING_BACKEND in ["langfuse", "otel_and_langfuse"]:
             # Langfuse tracing using @observe decorator
             observe_kwargs = {}
             if name:
@@ -158,26 +163,26 @@ def generic_trace(name: Optional[str] = None, span_type: Optional[str] = None, *
             
             # Use Langfuse's @observe decorator
             return observe(**observe_kwargs)(func)
-        elif TRACING_BACKEND == "otel":
-            
-            def trace_function_io(func):
-                tracer = get_otel_tracer()
-                def wrapper(*args, **kwargs):
-                    with tracer.start_as_current_span(func.__name__) as span:
-                        # Capture inputs
-                        span.set_attribute("function.args", str(args))
-                        span.set_attribute("function.kwargs", str(kwargs))
+        # elif TRACING_BACKEND == "otel":
+        #     # this is super janky spans - not that useful!
+        #     def trace_function_io(func):
+        #         tracer = get_otel_tracer_with_langfuse()
+        #         def wrapper(*args, **kwargs):
+        #             with tracer.start_as_current_span(func.__name__) as span:
+        #                 # Capture inputs
+        #                 span.set_attribute("function.args", str(args))
+        #                 span.set_attribute("function.kwargs", str(kwargs))
 
-                        result = func(*args, **kwargs)
+        #                 result = func(*args, **kwargs)
 
-                        # Capture output
-                        span.set_attribute("function.return_value", str(result))
-                        return result
-                return wrapper
-            the_name = name or func.__name__
+        #                 # Capture output
+        #                 span.set_attribute("function.return_value", str(result))
+        #                 return result
+        #         return wrapper
+        #     the_name = name or func.__name__
 
-            return trace_function_io(func)
-            return _tracer.start_as_current_span(the_name)(func)
+        #     return trace_function_io(func)
+        #     return _tracer.start_as_current_span(the_name)(func)
 
         elif TRACING_BACKEND == "none":
             # No tracing - pass through
@@ -217,28 +222,7 @@ def start_tracing():
         mlflow.openai.autolog()
     elif TRACING_BACKEND in ["opentelemetry", "traceloop"]:
 
-        # os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
-        # # Set up Databricks Workspace Client with OAuth authentication
-        # databricks_workspace_client = WorkspaceClient()
-        # auth_headers = databricks_workspace_client.config.authenticate()
-
-
-        # os.environ['TRACELOOP_BASE_URL']="https://opentelemetry-collector-app-8544796052846287.aws.databricksapps.com/v1/traces"
-
-        # # Create OTLP exporter with debug info
-        # otlp_exporter = OTLPSpanExporter(
-        #     endpoint=os.environ['TRACELOOP_BASE_URL'],
-        #     headers={
-        #         "content-type": "application/x-protobuf",
-        #         # Retrieve the Databricks OAuth token from the Databricks Workspace Client
-        #         # and set it as a header
-        #         **auth_headers
-        #     }
-        # )
-
-
-
-        # Traceloop.init(exporter=otlp_exporter)
+        # traceloop is janky and cant be init'd here - must be in the global context
 
         print(f"Traceloop initialized with backend: {TRACING_BACKEND}")
         
@@ -249,9 +233,9 @@ def start_tracing():
         get_langfuse_client()
         print(f"Langfuse initialized with backend: {TRACING_BACKEND}")
 
-    elif TRACING_BACKEND == "otel":
-        get_otel_tracer()
-        print(f"OTEL initialized with backend: {TRACING_BACKEND}")
+    elif TRACING_BACKEND == "otel_and_langfuse":
+        get_otel_tracer_with_langfuse()
+        print(f"OTEL & LangFuse initialized with backend: {TRACING_BACKEND}")
 
 def log_user_session(user_id, session_id):
     """
