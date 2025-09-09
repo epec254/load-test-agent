@@ -8,7 +8,8 @@ def run_chat_test():
     """
     Simulates a multi-turn conversation with the agent API.
     """
-    conversation_history = []
+    messages = []
+    customer_id = "cust_12345"
     
     turns = [
         "Why is my bill so high?",
@@ -21,10 +22,12 @@ def run_chat_test():
     for turn in turns:
         print(f"\n> You: {turn}")
         
+        # Add user message to the conversation
+        messages.append({"role": "user", "content": turn})
+        
         payload = {
-            "history": conversation_history,
-            "message": turn,
-            "customer_id": "cust_12345"
+            "messages": messages,
+            "customer_id": customer_id
         }
         
         try:
@@ -38,10 +41,17 @@ def run_chat_test():
             response.raise_for_status()  # Raise an exception for bad status codes
             
             data = response.json()
-            agent_response = data["response"]
-            conversation_history = data["history"]
+            messages = data["messages"]
             
-            print(f"Agent: {agent_response}")
+            # Extract the last assistant message
+            agent_response = None
+            for msg in reversed(messages):
+                if msg.get("role") == "assistant":
+                    agent_response = msg.get("content")
+                    break
+            
+            if agent_response:
+                print(f"Agent: {agent_response}")
             
         except requests.exceptions.RequestException as e:
             print(f"Error calling API: {e}")
