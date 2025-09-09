@@ -1354,6 +1354,26 @@ wheels = [
 ]
 
 [[package]]
+name = "langfuse"
+version = "3.3.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "backoff" },
+    { name = "httpx" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/27/9d/c9c422c660459687293727c9146185f92443b6c72fda564ab10e9e16ab41/langfuse-3.3.4.tar.gz", hash = "sha256:e5df4e7284298990b522e02a1dc6c3c72ebc4a7a411dc7d39255fb8c2e5a7c3a", size = 164745 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/46/edd370d47ca72ed4ca36b3c3b8f3a4ce71a310629d0bcb6ed760b04b08b1/langfuse-3.3.4-py3-none-any.whl", hash = "sha256:15b9d20878cf39a48ca9cfa7e52acdfeb043603d3a9cef8cf451687a4d838c6b", size = 318389 },
+]
+
+[[package]]
 name = "langsmith"
 version = "0.4.27"
 source = { registry = "https://pypi.org/simple" }
@@ -1378,6 +1398,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "databricks-sdk" },
     { name = "fastapi" },
+    { name = "langfuse" },
     { name = "mlflow", extra = ["databricks"] },
     { name = "mlflow-tracing" },
     { name = "openai" },
@@ -1391,6 +1412,7 @@ dependencies = [
 requires-dist = [
     { name = "databricks-sdk", specifier = ">=0.65.0" },
     { name = "fastapi", specifier = ">=0.111.0" },
+    { name = "langfuse", specifier = ">=3.3.4" },
     { name = "mlflow", extras = ["databricks"], specifier = ">=3.3.2" },
     { name = "mlflow-tracing", specifier = ">=3.3.2" },
     { name = "openai", specifier = ">=1.107.0" },

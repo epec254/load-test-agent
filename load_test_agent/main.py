@@ -4,7 +4,8 @@ import uuid
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from openai import OpenAI
+# from openai import OpenAI
+from langfuse.openai import OpenAI
 from dotenv import load_dotenv
 from . import tools
 from .utils import function_to_schema
