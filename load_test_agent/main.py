@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 # from openai import OpenAI
-from langfuse.openai import OpenAI
+from langfuse.openai import OpenAI # this supports OTEL + MLflow too
 from dotenv import load_dotenv
 from . import tools
 from .utils import function_to_schema
@@ -13,10 +13,9 @@ from .utils import function_to_schema
 # Load environment variables
 load_dotenv()
 
-import logging
-import mlflow
 
 from .init_trace import start_tracing, log_user_session, generic_trace
+
 
 start_tracing()
 
