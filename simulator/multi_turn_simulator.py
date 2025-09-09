@@ -357,24 +357,31 @@ class UserSimulator:
         """Generate the first message from the user."""
         first_issue = persona.issues[0]
         
-        system_prompt = f"""You are {persona.name}, a customer with the following characteristics:
-- Personality: {persona.background}
-- Communication style: {persona.communication_style}
-- Current mood: {'frustrated' if PersonalityTrait.FRUSTRATED in persona.personality_traits else 'neutral'}
+        system_prompt = f"""You are {persona.name}, a customer typing in a chat support window.
 
-You need help with several issues, but start with your most pressing one:
-- {first_issue.description}
+You need help with: {first_issue.description}
 
-Generate a natural opening message that:
-1. Reflects your personality and communication style
-2. Introduces your first issue
-3. Sounds like a real customer (use "I", "my", "me")
-4. Is appropriate for the category: {first_issue.category}
+IMPORTANT RULES FOR CHAT:
+- Write like you're typing on your phone (15-30 words MAX)
+- Be informal and direct
+- NO long explanations or multiple questions
+- NO formal language or detailed requirements
+- Use contractions (don't, can't, won't)
 
-Do NOT include your customer ID or personal details - the agent already knows who you are.
-Keep it natural and conversational."""
+GOOD examples (realistic chat):
+- "hey my autopay isn't working, can you check?"
+- "I need to change my payment method"
+- "why is my bill so high this month?"
+- "my data is really slow today, what's going on?"
+- "can't make calls but texts work fine"
 
-        user_prompt = "Generate your opening message to the support agent."
+BAD examples (unrealistic):
+- "I'd like to review my autopay configuration including payment method, schedule, and failure notifications"
+- "Could you please provide comprehensive details about my billing history and usage patterns?"
+
+Personality: {'frustrated and brief' if PersonalityTrait.FRUSTRATED in persona.personality_traits else 'casual'}"""
+
+        user_prompt = "Type your first message (remember: 15-30 words, casual chat style):"
         
         response = self.client.chat.completions.create(
             model=self.model,
@@ -383,7 +390,7 @@ Keep it natural and conversational."""
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.8,
-            max_tokens=200
+            max_tokens=50  # Reduced from 200
         )
         
         return response.choices[0].message.content.strip()
@@ -418,26 +425,26 @@ Keep it natural and conversational."""
         Returns:
             Tuple of (max_words, style_description)
         """
-        # Default constraints
-        max_words = 50
-        style = "conversational and focused"
+        # Much stricter limits for realistic chat
+        max_words = 20  # Default for chat
+        style = "casual chat"
         
-        # Adjust based on personality traits
+        # Adjust based on personality traits (but keep it SHORT)
         if PersonalityTrait.BRIEF in persona.personality_traits:
-            max_words = 30
-            style = "very brief and direct"
+            max_words = 10
+            style = "very brief"
         elif PersonalityTrait.FRUSTRATED in persona.personality_traits:
-            max_words = 40
-            style = "frustrated and pointed"
+            max_words = 15
+            style = "frustrated and short"
         elif PersonalityTrait.NON_TECHNICAL in persona.personality_traits:
-            max_words = 50
-            style = "simple and non-technical"
+            max_words = 20
+            style = "simple questions"
         elif PersonalityTrait.DETAILED in persona.personality_traits:
-            max_words = 80
-            style = "detailed but focused on one specific aspect"
+            max_words = 25  # Even detailed people type short in chat
+            style = "specific question"
         elif PersonalityTrait.PATIENT in persona.personality_traits:
-            max_words = 60
-            style = "patient and polite"
+            max_words = 20
+            style = "polite but brief"
         
         return max_words, style
     
@@ -531,40 +538,40 @@ Issues to check:
                                  reason: str) -> str:
         """Generate a closing message based on the reason."""
         if reason == "all_issues_resolved":
-            tone = "satisfied and grateful"
-            context = "All your issues have been resolved."
+            tone = "satisfied"
+            examples = ["thanks that worked", "ok great thanks", "perfect thanks", "all good now"]
         elif reason == "satisfied":
             tone = "content"
-            context = "Your main concerns have been addressed."
+            examples = ["ok thanks", "that helps", "got it thanks", "sounds good"]
         elif reason == "no_progress":
-            tone = "frustrated but giving up"
-            context = "You haven't made progress on your issues."
+            tone = "frustrated"
+            examples = ["this isn't working", "forget it", "nevermind", "i'll call instead"]
         elif reason == "too_frustrated":
             tone = "very frustrated"
-            context = "You're too frustrated to continue."
+            examples = ["this is useless", "forget it", "waste of time", "bye"]
         else:
             tone = "neutral"
-            context = "You need to go but may follow up later."
+            examples = ["gotta go", "ok bye", "i'll check later", "thanks anyway"]
         
-        system_prompt = f"""You are {persona.name} ending the conversation.
-Tone: {tone}
-Context: {context}
-Personality: {persona.background}
+        system_prompt = f"""Type a SHORT chat closing message.
 
-Generate a natural closing message that:
-1. Reflects the tone and context
-2. Mentions if you'll follow up later (if unresolved issues remain)
-3. Stays in character
-4. Is brief (1-2 sentences)"""
+Tone: {tone}
+Good examples: {examples}
+
+RULES:
+- Maximum 10 words
+- Type like you're in chat (lowercase ok)
+- Be natural and brief
+- NO formal language"""
         
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "Generate your closing message."}
+                {"role": "user", "content": "Type your closing message (max 10 words):"}
             ],
             temperature=0.7,
-            max_tokens=100
+            max_tokens=30
         )
         
         return response.choices[0].message.content.strip()
@@ -604,67 +611,56 @@ Generate a natural closing message that:
         
         # Build few-shot examples
         few_shot_examples = """
-GOOD customer responses (realistic and natural):
+GOOD chat responses (how real people type):
 
-Example 1 (BRIEF personality):
+Example 1:
 Agent: "I've activated your eSIM. You should see signal bars now."
-Good response: "Still showing 'No Service'. Should I restart the phone?"
+Good: "still no service"
+Good: "should i restart?"
 
-Example 2 (FRUSTRATED personality):
+Example 2:
 Agent: "Let me check your account for compatible plans."
-Good response: "I've been waiting 20 minutes already. Can you just tell me if the unlimited plan works with my iPhone 15?"
+Good: "how long will this take"
+Good: "just need to know if unlimited works with iphone 15"
 
-Example 3 (DETAILED personality):
+Example 3:
 Agent: "Your new device is compatible with our 5G network."
-Good response: "Great! Does that include both mmWave and sub-6 bands? I travel between NYC and rural areas, so I need to know coverage differences."
+Good: "does it work everywhere?"
+Good: "what about rural areas"
 
-Example 4 (NON_TECHNICAL personality):
+Example 4:
 Agent: "You'll need to update your APN settings."
-Good response: "I don't know what that means. Can you just walk me through it step by step?"
+Good: "what's that?"
+Good: "can you help me do it"
 
-BAD customer responses (NEVER do these):
-
-Bad Example 1 (too many topics):
-"Thanks for the info. Now I need: 1) all plan prices 2) device specs for 5 phones 3) trade-in values 4) international roaming rates 5) family plan details 6) insurance options..."
-
-Bad Example 2 (unrealistic detail request):
-"Please provide a comprehensive comparison matrix including RAM, chipset specifications, band support for all carriers, detailed camera sensor information, warranty terms..."
-
-Bad Example 3 (too formal/robotic):
-"I acknowledge receipt of your previous communication. Please proceed to enumerate all available options with their respective cost-benefit analyses."
+BAD responses (TOO LONG/FORMAL):
+- "I'd like comprehensive details about all available plans including pricing tiers and feature comparisons"
+- "Please enumerate the technical specifications and compatibility requirements"
+- "Could you provide a detailed breakdown of charges with historical usage patterns"
+- Any message over 30 words
+- Multiple questions in one message
+- Formal business language
 """
         
-        system_prompt = f"""You are {persona.name} continuing the conversation.
-Personality: {persona.background}
-Communication style: {persona.communication_style} - {style_description}
-Current satisfaction: {state.satisfaction_score:.1f}
-Frustration level: {persona.frustration_level:.1f}
+        system_prompt = f"""You are {persona.name} typing in a chat window.
 
 {few_shot_examples}
 
-CRITICAL CONSTRAINTS:
-- Respond like a REAL customer on the phone, not writing an email or formal request
-- Maximum response length: {max_words} words (BE STRICT ABOUT THIS!)
-- Focus on ONE main point or question
-- NO lists of multiple requirements
-- NO comprehensive spec requests  
-- NO asking for detailed comparisons of multiple products
-- Sound natural and conversational
-- Use "I", "my", "me" - first person
-- Be informal, use contractions (don't, won't, can't)
+ABSOLUTE RULES:
+- You're typing on your phone/computer in a CHAT WINDOW
+- Maximum {max_words} words (usually aim for 5-15 words)
+- Type like a normal person in chat:
+  * lowercase is fine
+  * short and direct
+  * one thought at a time
+  * no formal language
+  * use "i", "my", "me"
+  * contractions always (don't, can't, won't)
 
-Previous agent response addressed: {addressed_issues if addressed_issues else 'nothing specific'}
+Current mood: {'frustrated' if persona.frustration_level > 0.5 else 'normal'}
+Action: {action}
 
-Your next action: {action}
-
-Generate a natural response that:
-1. Stays in character ({style_description})
-2. Performs the specified action
-3. Is under {max_words} words
-4. Sounds like a real phone conversation
-5. Reflects your current emotional state
-
-Remember: Real customers don't ask for exhaustive comparisons or detailed technical matrices. They ask specific, focused questions about their immediate needs."""
+Type your message (5-15 words ideal, NEVER over {max_words}):"""
         
         response = self.client.chat.completions.create(
             model=self.model,
@@ -673,7 +669,7 @@ Remember: Real customers don't ask for exhaustive comparisons or detailed techni
                 {"role": "user", "content": f"Agent said: {agent_response[:500]}"}
             ],
             temperature=0.8,
-            max_tokens=150  # Reduced from 200
+            max_tokens=50  # Much stricter for chat
         )
         
         generated_response = response.choices[0].message.content.strip()
@@ -692,20 +688,19 @@ Remember: Real customers don't ask for exhaustive comparisons or detailed techni
                                              agent_response: str, addressed_issues: List[str],
                                              action: str, max_words: int) -> str:
         """Regenerate response with even stricter length constraints."""
-        system_prompt = f"""You are {persona.name}. 
+        system_prompt = f"""CHAT MESSAGE - MAX {max_words} WORDS!
 
-STRICT REQUIREMENT: Your response MUST be under {max_words} words. This is CRITICAL.
+Examples of realistic chat:
+- "that didn't work"
+- "still having issues"
+- "how much?"
+- "can you fix it"
+- "when will it work"
+- "ok thanks"
 
-Your action: {action}
+Action: {action}
 
-Write a VERY SHORT response (under {max_words} words) that sounds natural.
-Examples of good length:
-- "That didn't work. What else can I try?" (8 words)
-- "OK but I'm still getting error messages on my phone." (10 words)  
-- "How much will that cost me per month?" (8 words)
-- "I don't understand. Can you explain it simpler?" (8 words)
-
-DO NOT write long sentences or multiple questions."""
+Type a SHORT chat message ({max_words} words MAX):"""
         
         response = self.client.chat.completions.create(
             model=self.model,
@@ -714,7 +709,7 @@ DO NOT write long sentences or multiple questions."""
                 {"role": "user", "content": f"Keep it under {max_words} words. Agent said: {agent_response[:200]}"}
             ],
             temperature=0.7,
-            max_tokens=80  # Very strict token limit
+            max_tokens=30  # Very strict for chat
         )
         
         return response.choices[0].message.content.strip()
