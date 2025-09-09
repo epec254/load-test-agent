@@ -83,6 +83,7 @@ class ConversationState:
     """Tracks the state of an ongoing conversation."""
     conversation_id: str
     persona: Persona
+    session_id: Optional[str] = None  # Agent session ID
     turn_number: int = 0
     messages: List[Dict[str, Any]] = field(default_factory=list)  # OpenAI format messages
     issues_raised: List[str] = field(default_factory=list)
@@ -728,7 +729,7 @@ class AgentClient:
             # Try the main endpoint with minimal data
             response = requests.post(
                 self.api_url,
-                json={"messages": [{"role": "user", "content": "test"}], "customer_id": "test"},
+                json={"messages": [{"role": "user", "content": "test"}], "customer_id": "test", "session_id": None},
                 timeout=5
             )
             return response.status_code == 200
@@ -737,11 +738,11 @@ class AgentClient:
             return False
     
     def send_message(self, message: str, messages: List[Dict[str, Any]], 
-                     customer_id: str) -> Tuple[str, List[Dict[str, Any]]]:
+                     customer_id: str, session_id: Optional[str] = None) -> Tuple[str, List[Dict[str, Any]], str]:
         """Send a message to the agent and get response.
         
         Returns:
-            Tuple of (agent_response, updated_messages)
+            Tuple of (agent_response, updated_messages, session_id)
         """
         # Add the user message to the messages list
         messages_with_user = messages + [{"role": "user", "content": message}]
@@ -751,12 +752,17 @@ class AgentClient:
             "customer_id": customer_id
         }
         
+        # Include session_id if provided
+        if session_id:
+            payload["session_id"] = session_id
+        
         try:
             response = requests.post(self.api_url, json=payload)
             response.raise_for_status()
             
             data = response.json()
             updated_messages = data["messages"]
+            returned_session_id = data.get("session_id", session_id)
             
             # Extract the last assistant message
             agent_response = None
@@ -768,7 +774,7 @@ class AgentClient:
             if not agent_response:
                 raise Exception("No assistant response found in messages")
             
-            return agent_response, updated_messages
+            return agent_response, updated_messages, returned_session_id
             
         except requests.exceptions.RequestException as e:
             raise Exception(f"Error calling API: {e}")
@@ -820,11 +826,18 @@ class ConversationOrchestrator:
                 
                 # Get agent response
                 try:
-                    agent_response, updated_messages = self.agent_client.send_message(
+                    agent_response, updated_messages, session_id = self.agent_client.send_message(
                         current_message,
                         state.messages,
-                        persona.customer_id
+                        persona.customer_id,
+                        state.session_id
                     )
+                    
+                    # Store session_id (will be set on first call)
+                    if not state.session_id and session_id:
+                        state.session_id = session_id
+                        if self.verbose:
+                            print(f"📝 Session ID: {session_id}")
                     
                     print(f"🤖 Agent: {agent_response}\n")
                     
@@ -878,6 +891,7 @@ class ConversationOrchestrator:
         print(f"CONVERSATION SUMMARY")
         print(f"{'='*60}")
         print(f"Conversation ID: {state.conversation_id}")
+        print(f"Session ID: {state.session_id}")
         print(f"Customer: {state.persona.name} ({state.persona.customer_id})")
         print(f"Duration: {duration:.1f} seconds")
         print(f"Total turns: {state.turn_number}")
@@ -989,6 +1003,7 @@ def main():
         for state in all_states:
             export_data.append({
                 "conversation_id": state.conversation_id,
+                "session_id": state.session_id,
                 "customer_id": state.persona.customer_id,
                 "customer_name": state.persona.name,
                 "personality_traits": [t.value for t in state.persona.personality_traits],
