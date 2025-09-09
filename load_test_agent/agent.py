@@ -82,41 +82,56 @@ class Agent:
             tool_choice="auto",
         )
 
-        response_message = response.choices[0].message
-        tool_calls = response_message.tool_calls
-
-        if tool_calls:
-            messages.append(response_message)
-
-            for tool_call in tool_calls:
-                function_name = tool_call.function.name
-                function_to_call = self.available_tools[function_name]
-                function_args = json.loads(tool_call.function.arguments)
+        max_iterations = 10
+        iteration = 0
+        
+        while iteration < max_iterations:
+            if iteration == 0:
+                response_message = response.choices[0].message
+            else:
+                response_message = response.choices[0].message
+            
+            tool_calls = response_message.tool_calls
+            
+            if tool_calls:
+                messages.append(response_message)
                 
-                if "customer_id" in function_to_call.__code__.co_varnames and "customer_id" not in function_args:
-                    function_args["customer_id"] = self.customer_id
-
-                function_response = function_to_call(**function_args)
+                for tool_call in tool_calls:
+                    function_name = tool_call.function.name
+                    function_to_call = self.available_tools[function_name]
+                    function_args = json.loads(tool_call.function.arguments)
+                    
+                    if "customer_id" in function_to_call.__code__.co_varnames and "customer_id" not in function_args:
+                        function_args["customer_id"] = self.customer_id
+                    
+                    function_response = function_to_call(**function_args)
+                    
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call.id,
+                            "role": "tool",
+                            "name": function_name,
+                            "content": function_response,
+                        }
+                    )
                 
-                messages.append(
-                    {
-                        "tool_call_id": tool_call.id,
-                        "role": "tool",
-                        "name": function_name,
-                        "content": function_response,
-                    }
+                # Make another API call to continue the conversation
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    tools=self.tool_definitions,
+                    tool_choice="auto",
                 )
-
-            second_response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                tools=self.tool_definitions,
-                tool_choice="auto",
-            )
-            final_response = second_response.choices[0].message.content
-            messages.append({"role": "assistant", "content": final_response})
-        else:
-            final_response = response_message.content
+                iteration += 1
+            else:
+                # No more tool calls, we have the final response
+                final_response = response_message.content
+                messages.append({"role": "assistant", "content": final_response})
+                break
+        
+        # If we hit max iterations, use the last response as final
+        if iteration == max_iterations:
+            final_response = response.choices[0].message.content
             messages.append({"role": "assistant", "content": final_response})
         
         return messages, final_response
